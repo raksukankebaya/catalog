@@ -66,7 +66,7 @@ function StatusNotice({ message, floating = false }: { message: string; floating
 }
 
 export default function Home() {
-  const [data, setData] = useState<Catalog>(fallback);
+  const [data, setData] = useState<Catalog>({ categories: [], subcategories: [], items: [], carousel: [], galleryCategories: [], gallery: [], contact: {} });
   const [slide, setSlide] = useState(0);
   const [category, setCategory] = useState<Category | null>(null);
   const [item, setItem] = useState<Item | null>(null);
@@ -81,6 +81,8 @@ export default function Home() {
   const galleryResultsRef = useRef<HTMLDivElement | null>(null);
   const galleryTouchStartX = useRef(0);
   const modalTouchStartX = useRef(0);
+  const galleryMotionLock = useRef(false);
+  const modalMotionLock = useRef(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -90,33 +92,23 @@ export default function Home() {
   const [editing, setEditing] = useState<Record<string, string | number | boolean>>({});
   const [notice, setNotice] = useState("");
   const [apiUrl, setApiUrl] = useState("");
-  const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [catalogError, setCatalogError] = useState("");
+  const [galleryMotion, setGalleryMotion] = useState<"next" | "previous" | "">("");
+  const [modalMotion, setModalMotion] = useState<"next" | "previous" | "">("");
 
   const refresh = async () => {
     if (!apiUrl || apiUrl.includes("PASTE_")) return;
-    setCatalogStatus("loading");
     try {
       const response = await fetch(`${apiUrl}?action=catalog&ts=${Date.now()}`);
       if (!response.ok) throw new Error("Server data tidak merespons.");
       const result = await response.json();
       if (!result.ok) throw new Error(result.error || "Data katalog tidak dapat dibaca.");
       setData({ ...result.data, subcategories: result.data.subcategories || [], galleryCategories: result.data.galleryCategories || [], gallery: result.data.gallery || [] });
-      setCatalogStatus("ready");
-      setCatalogError("");
-    } catch {
-      setCatalogStatus("error");
-      setCatalogError("Data katalog belum dapat dimuat. Silakan coba kembali.");
-    }
+    } catch { /* Halaman tetap tampil tanpa memasukkan data contoh. */ }
   };
 
   useEffect(() => {
     const configuredUrl = window.RAKSUKAN_CONFIG?.apiUrl?.trim() || "";
-    if (!configuredUrl || configuredUrl.includes("PASTE_")) {
-      setCatalogStatus("error");
-      setCatalogError("Website belum terhubung ke sumber data.");
-      return;
-    }
+    if (!configuredUrl || configuredUrl.includes("PASTE_")) return;
     setApiUrl(configuredUrl);
   }, []);
   useEffect(() => { if (apiUrl) refresh(); }, [apiUrl]);
@@ -182,17 +174,29 @@ export default function Home() {
   };
 
   const moveGallery = (direction: number) => {
-    if (activeGallery.length < 2) return;
-    setGalleryIndex((current) => (current + direction + activeGallery.length) % activeGallery.length);
+    if (activeGallery.length < 2 || galleryMotionLock.current) return;
+    galleryMotionLock.current = true;
+    setGalleryMotion(direction > 0 ? "next" : "previous");
+    window.setTimeout(() => {
+      setGalleryIndex((current) => (current + direction + activeGallery.length) % activeGallery.length);
+      setGalleryMotion("");
+      galleryMotionLock.current = false;
+    }, 430);
   };
   const finishGallerySwipe = (endX: number) => {
     const distance = endX - galleryTouchStartX.current;
     if (Math.abs(distance) > 42) moveGallery(distance < 0 ? 1 : -1);
   };
   const moveGalleryModal = (direction: number) => {
-    if (!galleryItem || activeGallery.length < 2) return;
+    if (!galleryItem || activeGallery.length < 2 || modalMotionLock.current) return;
+    modalMotionLock.current = true;
+    setModalMotion(direction > 0 ? "next" : "previous");
     const current = activeGallery.findIndex((entry) => entry.id === galleryItem.id);
-    setGalleryItem(activeGallery[(current + direction + activeGallery.length) % activeGallery.length]);
+    window.setTimeout(() => {
+      setGalleryItem(activeGallery[(current + direction + activeGallery.length) % activeGallery.length]);
+      setModalMotion("");
+      modalMotionLock.current = false;
+    }, 330);
   };
   const finishModalSwipe = (endX: number) => {
     const distance = endX - modalTouchStartX.current;
@@ -284,10 +288,6 @@ export default function Home() {
   };
   const openEdit = (tab: AdminTab, record: Record<string, unknown>) => { setAdminTab(tab); setEditing(record as Record<string, string | number | boolean>); };
 
-  if (catalogStatus !== "ready") {
-    return <main className="site-loading"><div className="loading-card"><img src="logo.png" alt="Raksukan Kebaya" /><span className={catalogStatus === "loading" ? "loading-ring" : "loading-ring error"} /><p className="eyebrow">Raksukan Kebaya</p><h1>{catalogStatus === "loading" ? "Menyiapkan koleksi…" : "Katalog belum terhubung"}</h1><p>{catalogStatus === "loading" ? "Mengambil koleksi terbaru untuk Anda." : catalogError}</p>{catalogStatus === "error" && apiUrl && <button className="button brown" onClick={refresh}>Coba kembali</button>}</div></main>;
-  }
-
   return <main>
     <header className="site-header">
       <a className="brand" href="#top" aria-label="Raksukan Kebaya - beranda"><img src="logo.png" alt="Logo Raksukan Kebaya" /><strong>Raksukan Kebaya</strong></a>
@@ -295,7 +295,7 @@ export default function Home() {
       <div className="header-actions"><button onClick={() => { setShowAllCollections(false); setSearchOpen(true); }} aria-label="Cari katalog">⌕ <span>Cari</span></button><button onClick={() => setWishlistOpen(true)} aria-label={`My Wishlist, ${wishlist.length} item`}>♡ <span>My Wishlist</span>{wishlist.length > 0 && <b>{wishlist.length}</b>}</button></div>
     </header>
 
-    {currentSlide && <section className="hero" id="top" aria-roledescription="carousel"><img key={currentSlide.id} src={currentSlide.imageUrl} alt="" className="hero-image" /><div className="hero-shade" /><div className="hero-content"><p className="eyebrow">Raksukan Kebaya</p><h1>{currentSlide.title}</h1><p>{currentSlide.subtitle}</p><a href="#koleksi" className="button light">Lihat koleksi <span>→</span></a></div>{activeSlides.length > 1 && <><button className="hero-arrow previous" onClick={() => setSlide((slide - 1 + activeSlides.length) % activeSlides.length)} aria-label="Gambar sebelumnya">‹</button><button className="hero-arrow next" onClick={() => setSlide((slide + 1) % activeSlides.length)} aria-label="Gambar berikutnya">›</button><div className="dots">{activeSlides.map((entry, index) => <button key={entry.id} className={index === slide ? "active" : ""} onClick={() => setSlide(index)} aria-label={`Tampilkan gambar ${index + 1}`} />)}</div></>}</section>}
+    {currentSlide ? <section className="hero" id="top" aria-roledescription="carousel"><img key={currentSlide.id} src={currentSlide.imageUrl} alt="" className="hero-image" /><div className="hero-shade" /><div className="hero-content"><p className="eyebrow">Raksukan Kebaya</p><h1>{currentSlide.title}</h1><p>{currentSlide.subtitle}</p><a href="#koleksi" className="button light">Lihat koleksi <span>→</span></a></div>{activeSlides.length > 1 && <><button className="hero-arrow previous" onClick={() => setSlide((slide - 1 + activeSlides.length) % activeSlides.length)} aria-label="Gambar sebelumnya">‹</button><button className="hero-arrow next" onClick={() => setSlide((slide + 1) % activeSlides.length)} aria-label="Gambar berikutnya">›</button><div className="dots">{activeSlides.map((entry, index) => <button key={entry.id} className={index === slide ? "active" : ""} onClick={() => setSlide(index)} aria-label={`Tampilkan gambar ${index + 1}`} />)}</div></>}</section> : <section className="hero hero-brand" id="top"><div className="hero-shade" /><div className="hero-content"><p className="eyebrow">Raksukan Kebaya</p><h1>Keanggunan dalam setiap helai</h1><p>Kebaya pilihan untuk momen yang istimewa.</p><a href="#koleksi" className="button light">Lihat koleksi <span>→</span></a></div></section>}
 
     <section className="intro" id="koleksi"><p className="eyebrow">Koleksi pilihan</p><h2>Temukan kebaya untuk momenmu</h2><p>Pilih kategori untuk melihat detail setiap koleksi.</p></section>
     <section className="category-grid" aria-label="Kategori katalog">{activeCategories.map((entry) => <button className="category-card" key={entry.id} onClick={() => { setCategory(entry); setCategorySearch(""); setItem(null); }}><img src={entry.imageUrl} alt={entry.name} loading="lazy" /><span className="category-overlay"><small>Koleksi</small><strong>{entry.name}</strong><i>Jelajahi →</i></span></button>)}</section>
@@ -306,7 +306,7 @@ export default function Home() {
       <div className={`gallery-results ${galleryCategoryId ? "visible" : ""}`} ref={galleryResultsRef}>
         {!galleryCategoryId ? <p className="gallery-prompt">Pilih salah satu subkategori di atas untuk membuka galerinya.</p> : currentGalleryEntry ? <div className="gallery-focus-wrap">
           <div className="gallery-focus-heading"><div><p className="eyebrow">{data.galleryCategories.find((entry) => entry.id === galleryCategoryId)?.name}</p><h3>{currentGalleryEntry.title}</h3></div><span>{String(galleryIndex + 1).padStart(2, "0")} / {String(activeGallery.length).padStart(2, "0")}</span></div>
-          <div className="gallery-focus-carousel" onTouchStart={(event) => { galleryTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishGallerySwipe(event.changedTouches[0].clientX)}>
+          <div className={`gallery-focus-carousel ${galleryMotion ? `push-${galleryMotion}` : ""}`} onTouchStart={(event) => { galleryTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishGallerySwipe(event.changedTouches[0].clientX)}>
             {previousGalleryEntry && <button key={`previous-${previousGalleryEntry.id}`} className="gallery-focus-card previous" onClick={() => moveGallery(-1)} aria-label="Foto sebelumnya"><img src={galleryThumb(previousGalleryEntry)} alt={previousGalleryEntry.title} /></button>}
             <button key={`current-${currentGalleryEntry.id}`} className="gallery-focus-card current" onClick={() => setGalleryItem(currentGalleryEntry)} aria-label={`Buka ${currentGalleryEntry.title}`}><img src={galleryThumb(currentGalleryEntry)} alt={currentGalleryEntry.title} />{currentGalleryEntry.mediaType === "video" && <span className="play-mark">▶</span>}<span className="gallery-focus-copy"><small>{currentGalleryEntry.mediaType === "video" ? "Video" : "Foto"}</small><strong>{currentGalleryEntry.title}</strong><i>Ketuk untuk melihat utuh</i></span></button>
             {nextGalleryEntry && <button key={`next-${nextGalleryEntry.id}`} className="gallery-focus-card next" onClick={() => moveGallery(1)} aria-label="Foto berikutnya"><img src={galleryThumb(nextGalleryEntry)} alt={nextGalleryEntry.title} /></button>}
@@ -318,7 +318,7 @@ export default function Home() {
     </section>
     <section className="promise"><p>{data.contact.promiseEyebrow || "Setiap helai dipilih untuk merayakan"}</p><h2>{data.contact.promiseTitle || "keanggunan yang terasa personal."}</h2><span>✦</span></section>
 
-    <footer id="kontak"><div className="footer-brand"><img src="logo-footer-white.png" alt="Logo Raksukan Kebaya" /><div><h2>{data.contact.brand || "Raksukan Kebaya"}</h2><p>{data.contact.tagline}</p></div></div><div><h3>Hubungi kami</h3><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">WhatsApp · {data.contact.phone}</a><a href={`mailto:${data.contact.email}`}>{data.contact.email}</a><p>{data.contact.address}</p></div><div><h3>Media sosial</h3><div className="social-links">{data.contact.instagram && <a href={socialUrl(data.contact.instagram, "https://instagram.com/")} target="_blank" rel="noreferrer" aria-label="Instagram"><img src="https://cdn.simpleicons.org/instagram/ffffff" alt="" /><span>Instagram</span></a>}{data.contact.facebook && <a href={socialUrl(data.contact.facebook, "https://facebook.com/")} target="_blank" rel="noreferrer" aria-label="Facebook"><img src="https://cdn.simpleicons.org/facebook/ffffff" alt="" /><span>Facebook</span></a>}{data.contact.tiktok && <a href={socialUrl(data.contact.tiktok, "https://tiktok.com/@")} target="_blank" rel="noreferrer" aria-label="TikTok"><img src="https://cdn.simpleicons.org/tiktok/ffffff" alt="" /><span>TikTok</span></a>}</div><p>{data.contact.description}</p></div><small className="copyright">© {new Date().getFullYear()} Raksukan Kebaya. Seluruh hak dilindungi.</small></footer>
+    <footer id="kontak"><div className="footer-brand"><img src="logo-footer-white.png" alt="Logo Raksukan Kebaya" /><div><h2>{data.contact.brand || "Raksukan Kebaya"}</h2><p>{data.contact.tagline}</p></div></div><div><h3>Hubungi kami</h3><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">WhatsApp · {data.contact.phone}</a><a href={`mailto:${data.contact.email}`}>{data.contact.email}</a><p>{data.contact.address}</p></div><div><h3>Media sosial</h3><div className="social-links">{data.contact.instagram && <a href={socialUrl(data.contact.instagram, "https://instagram.com/")} target="_blank" rel="noreferrer" aria-label={`Instagram ${data.contact.instagram}`}><img src="https://cdn.simpleicons.org/instagram/ffffff" alt="" /><span><strong>Instagram</strong><small>{data.contact.instagram}</small></span></a>}{data.contact.facebook && <a href={socialUrl(data.contact.facebook, "https://facebook.com/")} target="_blank" rel="noreferrer" aria-label={`Facebook ${data.contact.facebook}`}><img src="https://cdn.simpleicons.org/facebook/ffffff" alt="" /><span><strong>Facebook</strong><small>{data.contact.facebook}</small></span></a>}{data.contact.tiktok && <a href={socialUrl(data.contact.tiktok, "https://tiktok.com/@")} target="_blank" rel="noreferrer" aria-label={`TikTok ${data.contact.tiktok}`}><img src="https://cdn.simpleicons.org/tiktok/ffffff" alt="" /><span><strong>TikTok</strong><small>{data.contact.tiktok}</small></span></a>}</div><p>{data.contact.description}</p></div><small className="copyright">© {new Date().getFullYear()} Raksukan Kebaya. Seluruh hak dilindungi.</small></footer>
     <button className="admin-button" onClick={() => setAdminOpen(true)} aria-label="Buka panel admin" title="Admin">⚙</button>{notice && !adminOpen && <StatusNotice message={notice} floating />}
 
     {category && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Koleksi ${category.name}`} onMouseDown={(e) => e.target === e.currentTarget && setCategory(null)}><section className="catalog-modal"><button className="close" onClick={() => setCategory(null)} aria-label="Tutup">×</button><div className="modal-heading"><button onClick={() => setCategory(null)}>← Semua kategori</button><div className="category-heading-row"><div><p className="eyebrow">{category.name}</p><h2>{category.description}</h2></div><label className="category-search"><span>⌕</span><input value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} placeholder="Cari dalam kategori…" aria-label="Cari dalam kategori" /></label></div></div>{categorySubgroups.length ? <div className="subcategory-sections">{categorySubgroups.map(({ sub, items }) => <section className="subcategory-section" key={sub.id}><div className="subcategory-title"><span>{String(sub.sortOrder).padStart(2, "0")}</span><h3>{sub.name}</h3><i>{items.length} koleksi</i></div><div className="item-grid">{items.map((entry) => <ItemCard key={entry.id} entry={entry} wished={wishlist.includes(entry.id)} openItem={openItem} toggleWishlist={toggleWishlist} />)}</div></section>)}</div> : <p className="empty">Tidak ada item yang cocok.</p>}</section></div>}
@@ -327,7 +327,7 @@ export default function Home() {
 
     {searchOpen && <div className="modal-backdrop search-layer" role="dialog" aria-modal="true" aria-label="Pencarian katalog"><section className="search-modal"><button className="close" onClick={() => setSearchOpen(false)} aria-label="Tutup">×</button><p className="eyebrow">{showAllCollections ? "Seluruh katalog" : "Pencarian global"}</p><h2>{showAllCollections ? "Semua koleksi" : "Temukan koleksi Anda"}</h2><label className="global-search"><span>⌕</span><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Nama, tipe, motif, warna, size…" autoFocus /></label><div className="search-results">{!showAllCollections && searchQuery.trim().length < 2 ? <p>Ketik minimal 2 karakter untuk mencari seluruh katalog.</p> : searchResults.length ? searchResults.map((entry) => <button key={entry.id} onClick={() => openItem(entry)}><img src={entry.imageUrl} alt="" /><span><small>{data.categories.find((x) => x.id === entry.categoryId)?.name}</small><strong>{entry.name}</strong><i>{[entry.type, entry.motif, entry.color, entry.size].filter(Boolean).join(" · ")}</i></span></button>) : <p>Tidak ada koleksi yang cocok.</p>}</div></section></div>}
 
-    {galleryItem && <div className="modal-backdrop gallery-layer" role="dialog" aria-modal="true" aria-label={galleryItem.title} onMouseDown={(e) => e.target === e.currentTarget && setGalleryItem(null)}><section className="gallery-modal" onTouchStart={(event) => { modalTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishModalSwipe(event.changedTouches[0].clientX)}><button className="close" onClick={() => setGalleryItem(null)} aria-label="Tutup">×</button><div className="gallery-media">{galleryItem.mediaType === "video" ? youtubeId(galleryItem.mediaUrl) ? <iframe src={`https://www.youtube.com/embed/${youtubeId(galleryItem.mediaUrl)}?autoplay=1`} title={galleryItem.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /> : <video src={galleryItem.mediaUrl} poster={galleryItem.thumbnailUrl} controls autoPlay /> : <img key={galleryItem.id} src={galleryItem.mediaUrl} alt={galleryItem.title} />}{activeGallery.length > 1 && <><button className="gallery-modal-arrow previous" onClick={() => moveGalleryModal(-1)} aria-label="Foto sebelumnya">‹</button><button className="gallery-modal-arrow next" onClick={() => moveGalleryModal(1)} aria-label="Foto berikutnya">›</button></>}</div><div className="gallery-copy"><p className="eyebrow">{galleryItem.mediaType === "video" ? "Video" : "Foto"}</p><h2>{galleryItem.title}</h2>{(galleryItem.location || galleryItem.date) && <p>{[galleryItem.location, galleryItem.date && new Date(`${galleryItem.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</p>}<small className="gallery-modal-hint">Geser untuk foto sebelumnya atau berikutnya</small></div></section></div>}
+    {galleryItem && <div className="modal-backdrop gallery-layer" role="dialog" aria-modal="true" aria-label={galleryItem.title} onMouseDown={(e) => e.target === e.currentTarget && setGalleryItem(null)}><section className="gallery-modal" onTouchStart={(event) => { modalTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishModalSwipe(event.changedTouches[0].clientX)}><button className="close" onClick={() => setGalleryItem(null)} aria-label="Tutup">×</button><div className={`gallery-media ${modalMotion ? `push-${modalMotion}` : ""}`}>{galleryItem.mediaType === "video" ? youtubeId(galleryItem.mediaUrl) ? <iframe src={`https://www.youtube.com/embed/${youtubeId(galleryItem.mediaUrl)}?autoplay=1`} title={galleryItem.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /> : <video src={galleryItem.mediaUrl} poster={galleryItem.thumbnailUrl} controls autoPlay /> : <img key={galleryItem.id} src={galleryItem.mediaUrl} alt={galleryItem.title} />}{activeGallery.length > 1 && <><button className="gallery-modal-arrow previous" onClick={() => moveGalleryModal(-1)} aria-label="Foto sebelumnya">‹</button><button className="gallery-modal-arrow next" onClick={() => moveGalleryModal(1)} aria-label="Foto berikutnya">›</button></>}</div><div className="gallery-copy"><p className="eyebrow">{galleryItem.mediaType === "video" ? "Video" : "Foto"}</p><h2>{galleryItem.title}</h2>{(galleryItem.location || galleryItem.date) && <p>{[galleryItem.location, galleryItem.date && new Date(`${galleryItem.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</p>}<small className="gallery-modal-hint">Geser untuk foto sebelumnya atau berikutnya</small></div></section></div>}
 
     {wishlistOpen && <div className="modal-backdrop wishlist-layer" role="dialog" aria-modal="true" aria-label="My Wishlist"><section className="wishlist-modal"><button className="close" onClick={() => setWishlistOpen(false)} aria-label="Tutup">×</button><h2>My Wishlist</h2>{wishlistItems.length ? <><div className="wishlist-list">{wishlistItems.map((entry) => <article key={entry.id}><button className="wishlist-open" onClick={() => { setWishlistOpen(false); openItem(entry); }}><img src={entry.imageUrl} alt={entry.name} /><span><strong>{entry.name}</strong><small>{entry.id}{entry.color ? ` · ${entry.color}` : ""}</small></span></button><button className="wishlist-remove" onClick={() => toggleWishlist(entry.id)} aria-label={`Hapus ${entry.name}`}>×</button></article>)}</div><a className="button brown send-wishlist" href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(wishlistMessage)}`} target="_blank">Send My Wishlist via WhatsApp</a></> : <div className="empty-wishlist"><span>♡</span><p>Wishlist Anda masih kosong.</p><button onClick={() => setWishlistOpen(false)}>Lihat koleksi</button></div>}</section></div>}
 
