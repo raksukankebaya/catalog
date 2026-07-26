@@ -1,3 +1,3 @@
 window.RAKSUKAN_CONFIG = {
-  apiUrl: "https://script.google.com/macros/s/AKfycbzxcllS_iqUSlzdZPtwNnmO8_ox6eehqEADFBbfHnjkqhkw4D-cA3DL8eBCzCN8qdph/exec"
+  apiUrl: "https://script.google.com/macros/s/AKfycbxAQRrDkMVjiYUCkmE0V3des-edVKEPFIfwhIcIca8mHehq_uLImDMr5xsfxQbaMX2h/exec"
 };
