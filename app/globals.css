@@ -189,3 +189,31 @@ footer .social-links a{width:100%;border-radius:8px;padding:10px 13px}
   .gallery-focus-carousel.push-previous .gallery-focus-card.next{left:158%}
   footer .social-links{max-width:none}
 }
+
+/* Raksukan Kebaya v14: flicker-free gallery and blocking logo loader */
+.catalog-loading-overlay{position:fixed;z-index:9999;inset:0;display:grid;place-items:center;background:rgba(251,247,241,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none;overscroll-behavior:contain;cursor:wait}
+.catalog-loading-mark{position:relative;display:grid;place-items:center;width:146px;height:146px}
+.catalog-loading-mark>span{position:absolute;inset:0;border:2px solid rgba(106,63,39,.13);border-top-color:var(--brown);border-right-color:#b77b55;border-radius:50%;animation:catalogLogoSpin .9s linear infinite;box-shadow:0 10px 35px rgba(70,38,21,.08)}
+.catalog-loading-mark>span:after{content:"";position:absolute;inset:8px;border:1px solid rgba(106,63,39,.1);border-radius:50%}
+.catalog-loading-mark>img{display:block;width:92px;height:92px;object-fit:contain;mix-blend-mode:multiply;background:transparent}
+@keyframes catalogLogoSpin{to{transform:rotate(360deg)}}
+
+.gallery-focus-card{animation:none}
+.gallery-media>img{animation:none}
+.gallery-media.push-next>.gallery-modal-frame,.gallery-media.push-previous>.gallery-modal-frame{animation:none}
+.gallery-modal-frame{position:absolute;z-index:1;inset:0;width:100%;height:100%;object-fit:contain;will-change:transform,opacity;backface-visibility:hidden;transform:translateZ(0)}
+.gallery-modal-frame.outgoing{z-index:2}
+.gallery-modal-frame.incoming{z-index:3}
+.gallery-media.push-next>.gallery-modal-frame.outgoing{animation:galleryPushOutLeft .38s cubic-bezier(.22,.8,.3,1) forwards}
+.gallery-media.push-next>.gallery-modal-frame.incoming{animation:galleryPushInRight .38s cubic-bezier(.22,.8,.3,1) forwards}
+.gallery-media.push-previous>.gallery-modal-frame.outgoing{animation:galleryPushOutRight .38s cubic-bezier(.22,.8,.3,1) forwards}
+.gallery-media.push-previous>.gallery-modal-frame.incoming{animation:galleryPushInLeft .38s cubic-bezier(.22,.8,.3,1) forwards}
+@keyframes galleryPushOutLeft{from{transform:translate3d(0,0,0)}to{transform:translate3d(-100%,0,0)}}
+@keyframes galleryPushInRight{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
+@keyframes galleryPushOutRight{from{transform:translate3d(0,0,0)}to{transform:translate3d(100%,0,0)}}
+@keyframes galleryPushInLeft{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(0,0,0)}}
+
+@media(max-width:620px){
+  .catalog-loading-mark{width:126px;height:126px}
+  .catalog-loading-mark>img{width:80px;height:80px}
+}
