@@ -224,3 +224,13 @@ footer .social-links a{width:100%;border-radius:8px;padding:10px 13px}
   .catalog-loading-mark{width:126px;height:126px}
   .catalog-loading-mark>img{width:80px;height:80px}
 }
+
+/* Raksukan Kebaya v16: carousel frame stays fixed between slides */
+.hero{width:100%;height:clamp(560px,calc(100svh - 92px),760px);min-height:560px;contain:layout paint}
+.hero-content{height:100%;max-height:100%;display:flex;flex-direction:column;justify-content:center;padding-top:56px;padding-bottom:76px}
+.hero-image,.hero-backdrop{will-change:opacity;backface-visibility:hidden;transform:translateZ(0)}
+
+@media(max-width:820px){
+  .hero{height:clamp(600px,calc(100svh - 76px),720px);min-height:600px}
+  .hero-content{padding-top:74px;padding-bottom:82px}
+}
