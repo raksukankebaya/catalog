@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, MouseEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Category = { id: string; name: string; description: string; imageUrl: string; active: boolean; sortOrder: number };
 type Subcategory = { id: string; categoryId: string; name: string; active: boolean; sortOrder: number };
@@ -69,6 +69,7 @@ export default function Home() {
   const [showAllCollections, setShowAllCollections] = useState(false);
   const [galleryItem, setGalleryItem] = useState<GalleryEntry | null>(null);
   const [galleryCategoryId, setGalleryCategoryId] = useState("");
+  const galleryResultsRef = useRef<HTMLDivElement | null>(null);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -120,6 +121,13 @@ export default function Home() {
   const wishlistItems = useMemo(() => wishlist.map((id) => data.items.find((x) => x.id === id)).filter(Boolean) as Item[], [wishlist, data.items]);
   const currentSlide = activeSlides[slide % Math.max(activeSlides.length, 1)] || fallback.carousel[0];
   const whatsapp = data.contact.whatsapp?.replace(/\D/g, "") || "";
+
+  const selectGalleryCategory = (id: string, toggle = false) => {
+    setGalleryCategoryId((current) => toggle && current === id ? "" : id);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => galleryResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    });
+  };
 
   const persistWishlist = (ids: string[]) => {
     setWishlist(ids);
@@ -194,7 +202,7 @@ export default function Home() {
     <section className="intro" id="koleksi"><p className="eyebrow">Koleksi pilihan</p><h2>Temukan kebaya untuk momenmu</h2><p>Pilih kategori untuk melihat detail setiap koleksi.</p></section>
     <section className="category-grid" aria-label="Kategori katalog">{activeCategories.map((entry) => <button className="category-card" key={entry.id} onClick={() => { setCategory(entry); setCategorySearch(""); setItem(null); }}><img src={entry.imageUrl} alt={entry.name} loading="lazy" /><span className="category-overlay"><small>Koleksi</small><strong>{entry.name}</strong><i>Jelajahi →</i></span></button>)}</section>
     <div className="all-collections"><button onClick={() => { setSearchQuery(""); setShowAllCollections(true); setSearchOpen(true); }}><span>Lihat semua koleksi</span><i>→</i></button></div>
-    <section className="gallery-section" id="galeri"><div className="gallery-intro"><p className="eyebrow">Cerita dalam bingkai</p><h2>Galeri Raksukan</h2><p>Pilih suasana acara, lalu temukan detail dan momen istimewa dari setiap karya.</p></div>{activeGalleryCategories.length > 0 && <><div className="gallery-category-grid" aria-label="Subkategori galeri">{activeGalleryCategories.map((entry) => <button key={entry.id} className={galleryCategoryId === entry.id ? "active" : ""} onClick={() => setGalleryCategoryId(galleryCategoryId === entry.id ? "" : entry.id)}><img src={entry.imageUrl} alt={entry.name} loading="lazy" /><span><small>Galeri acara</small><strong>{entry.name}</strong>{entry.description && <i>{entry.description}</i>}<b>{galleryCategoryId === entry.id ? "Tampilkan semua ×" : "Lihat galeri →"}</b></span></button>)}</div><div className="gallery-filter"><button className={!galleryCategoryId ? "active" : ""} onClick={() => setGalleryCategoryId("")}>Semua acara</button>{activeGalleryCategories.map((entry) => <button key={entry.id} className={galleryCategoryId === entry.id ? "active" : ""} onClick={() => setGalleryCategoryId(entry.id)}>{entry.name}</button>)}</div></>}{activeGallery.length ? <div className="gallery-showcase">{activeGallery.map((entry) => <button className="gallery-card" key={entry.id} onClick={() => setGalleryItem(entry)}><img src={galleryThumb(entry)} alt={entry.title} loading="lazy" />{entry.mediaType === "video" && <span className="play-mark">▶</span>}<span className="gallery-overlay"><small>{data.galleryCategories.find((x) => x.id === entry.galleryCategoryId)?.name || (entry.mediaType === "video" ? "Video" : "Foto")}</small><strong>{entry.title}</strong>{(entry.location || entry.date) && <i>{[entry.location, entry.date && new Date(`${entry.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</i>}</span></button>)}</div> : <p className="gallery-empty">Belum ada media untuk subkategori ini.</p>}</section>
+    <section className="gallery-section" id="galeri"><div className="gallery-intro"><p className="eyebrow">Cerita dalam bingkai</p><h2>Galeri Raksukan</h2><p>Pilih suasana acara, lalu temukan detail dan momen istimewa dari setiap karya.</p></div>{activeGalleryCategories.length > 0 && <><div className="gallery-category-grid" aria-label="Subkategori galeri">{activeGalleryCategories.map((entry) => <button key={entry.id} className={galleryCategoryId === entry.id ? "active" : ""} onClick={() => selectGalleryCategory(entry.id, true)}><img src={entry.imageUrl} alt={entry.name} loading="lazy" /><span><small>Galeri acara</small><strong>{entry.name}</strong>{entry.description && <i>{entry.description}</i>}<b>{galleryCategoryId === entry.id ? "Tampilkan semua ×" : "Lihat galeri →"}</b></span></button>)}</div><div className="gallery-filter"><button className={!galleryCategoryId ? "active" : ""} onClick={() => selectGalleryCategory("")}>Semua acara</button>{activeGalleryCategories.map((entry) => <button key={entry.id} className={galleryCategoryId === entry.id ? "active" : ""} onClick={() => selectGalleryCategory(entry.id)}>{entry.name}</button>)}</div></>}<div className="gallery-results" ref={galleryResultsRef}>{activeGallery.length ? <div className="gallery-showcase">{activeGallery.map((entry) => <button className="gallery-card" key={entry.id} onClick={() => setGalleryItem(entry)}><img src={galleryThumb(entry)} alt={entry.title} loading="lazy" />{entry.mediaType === "video" && <span className="play-mark">▶</span>}<span className="gallery-overlay"><small>{data.galleryCategories.find((x) => x.id === entry.galleryCategoryId)?.name || (entry.mediaType === "video" ? "Video" : "Foto")}</small><strong>{entry.title}</strong>{(entry.location || entry.date) && <i>{[entry.location, entry.date && new Date(`${entry.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</i>}</span></button>)}</div> : <p className="gallery-empty">Belum ada media untuk subkategori ini.</p>}</div></section>
     <section className="promise"><p>{data.contact.promiseEyebrow || "Setiap helai dipilih untuk merayakan"}</p><h2>{data.contact.promiseTitle || "keanggunan yang terasa personal."}</h2><span>✦</span></section>
 
     <footer id="kontak"><div className="footer-brand"><img src="logo-footer-white.png" alt="Logo Raksukan Kebaya" /><div><h2>{data.contact.brand || "Raksukan Kebaya"}</h2><p>{data.contact.tagline}</p></div></div><div><h3>Hubungi kami</h3><a href={`https://wa.me/${whatsapp}`} target="_blank">WhatsApp · {data.contact.phone}</a><a href={`mailto:${data.contact.email}`}>{data.contact.email}</a><p>{data.contact.address}</p></div><div><h3>Media sosial</h3><a href={`https://instagram.com/${data.contact.instagram?.replace(/^@/, "")}`} target="_blank">Instagram · @{data.contact.instagram?.replace(/^@/, "")}</a><p>{data.contact.description}</p></div><small className="copyright">© {new Date().getFullYear()} Raksukan Kebaya. Seluruh hak dilindungi.</small></footer>
