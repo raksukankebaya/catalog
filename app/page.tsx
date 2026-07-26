@@ -85,7 +85,9 @@ export default function Home() {
       const response = await fetch(`${apiUrl}?action=catalog&ts=${Date.now()}`);
       const result = await response.json();
       if (result.ok) setData({ ...result.data, subcategories: result.data.subcategories || [], galleryCategories: result.data.galleryCategories || [], gallery: result.data.gallery || [] });
-    } catch { setNotice("Data spreadsheet belum dapat dimuat. Menampilkan katalog contoh."); }
+    } catch {
+      // Tetap gunakan katalog cadangan tanpa menampilkan notifikasi kepada pengunjung.
+    }
   };
 
   useEffect(() => { refresh(); }, [apiUrl]);
