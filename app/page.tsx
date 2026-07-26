@@ -92,11 +92,14 @@ export default function Home() {
   const [editing, setEditing] = useState<Record<string, string | number | boolean>>({});
   const [notice, setNotice] = useState("");
   const [apiUrl, setApiUrl] = useState("");
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [galleryMotion, setGalleryMotion] = useState<"next" | "previous" | "">("");
   const [modalMotion, setModalMotion] = useState<"next" | "previous" | "">("");
+  const [modalOutgoing, setModalOutgoing] = useState<GalleryEntry | null>(null);
 
   const refresh = async () => {
     if (!apiUrl || apiUrl.includes("PASTE_")) return;
+    setIsCatalogLoading(true);
     try {
       const response = await fetch(`${apiUrl}?action=catalog&ts=${Date.now()}`);
       if (!response.ok) throw new Error("Server data tidak merespons.");
@@ -104,14 +107,21 @@ export default function Home() {
       if (!result.ok) throw new Error(result.error || "Data katalog tidak dapat dibaca.");
       setData({ ...result.data, subcategories: result.data.subcategories || [], galleryCategories: result.data.galleryCategories || [], gallery: result.data.gallery || [] });
     } catch { /* Halaman tetap tampil tanpa memasukkan data contoh. */ }
+    finally { setIsCatalogLoading(false); }
   };
 
   useEffect(() => {
     const configuredUrl = window.RAKSUKAN_CONFIG?.apiUrl?.trim() || "";
-    if (!configuredUrl || configuredUrl.includes("PASTE_")) return;
+    if (!configuredUrl || configuredUrl.includes("PASTE_")) { setIsCatalogLoading(false); return; }
     setApiUrl(configuredUrl);
   }, []);
   useEffect(() => { if (apiUrl) refresh(); }, [apiUrl]);
+  useEffect(() => {
+    if (!isCatalogLoading) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isCatalogLoading]);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "null");
@@ -150,6 +160,14 @@ export default function Home() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [galleryItem, activeGallery]);
+  useEffect(() => {
+    if (!activeGallery.length) return;
+    const indexes = [galleryIndex - 1, galleryIndex, galleryIndex + 1];
+    indexes.forEach((index) => {
+      const entry = activeGallery[(index + activeGallery.length) % activeGallery.length];
+      if (entry?.mediaType === "photo") { const image = new Image(); image.src = entry.mediaUrl; }
+    });
+  }, [activeGallery, galleryIndex]);
   const searchText = (entry: Item) => {
     const cat = data.categories.find((x) => x.id === entry.categoryId)?.name || "";
     const sub = data.subcategories.find((x) => x.id === entry.subcategoryId)?.name || "";
@@ -190,13 +208,16 @@ export default function Home() {
   const moveGalleryModal = (direction: number) => {
     if (!galleryItem || activeGallery.length < 2 || modalMotionLock.current) return;
     modalMotionLock.current = true;
-    setModalMotion(direction > 0 ? "next" : "previous");
     const current = activeGallery.findIndex((entry) => entry.id === galleryItem.id);
+    const target = activeGallery[(current + direction + activeGallery.length) % activeGallery.length];
+    setModalOutgoing(galleryItem.mediaType === "photo" ? galleryItem : null);
+    setModalMotion(direction > 0 ? "next" : "previous");
+    setGalleryItem(target);
     window.setTimeout(() => {
-      setGalleryItem(activeGallery[(current + direction + activeGallery.length) % activeGallery.length]);
+      setModalOutgoing(null);
       setModalMotion("");
       modalMotionLock.current = false;
-    }, 330);
+    }, 380);
   };
   const finishModalSwipe = (endX: number) => {
     const distance = endX - modalTouchStartX.current;
@@ -289,6 +310,7 @@ export default function Home() {
   const openEdit = (tab: AdminTab, record: Record<string, unknown>) => { setAdminTab(tab); setEditing(record as Record<string, string | number | boolean>); };
 
   return <main>
+    {isCatalogLoading && <div className="catalog-loading-overlay" role="status" aria-label="Memuat data katalog"><div className="catalog-loading-mark"><span aria-hidden="true" /><img src="logo.png" alt="" /></div></div>}
     <header className="site-header">
       <a className="brand" href="#top" aria-label="Raksukan Kebaya - beranda"><img src="logo.png" alt="Logo Raksukan Kebaya" /><strong>Raksukan Kebaya</strong></a>
       <nav aria-label="Navigasi utama"><a href="#koleksi">Koleksi</a><a href="#galeri">Galeri</a><a href="#kontak">Kontak</a></nav>
@@ -327,7 +349,7 @@ export default function Home() {
 
     {searchOpen && <div className="modal-backdrop search-layer" role="dialog" aria-modal="true" aria-label="Pencarian katalog"><section className="search-modal"><button className="close" onClick={() => setSearchOpen(false)} aria-label="Tutup">×</button><p className="eyebrow">{showAllCollections ? "Seluruh katalog" : "Pencarian global"}</p><h2>{showAllCollections ? "Semua koleksi" : "Temukan koleksi Anda"}</h2><label className="global-search"><span>⌕</span><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Nama, tipe, motif, warna, size…" autoFocus /></label><div className="search-results">{!showAllCollections && searchQuery.trim().length < 2 ? <p>Ketik minimal 2 karakter untuk mencari seluruh katalog.</p> : searchResults.length ? searchResults.map((entry) => <button key={entry.id} onClick={() => openItem(entry)}><img src={entry.imageUrl} alt="" /><span><small>{data.categories.find((x) => x.id === entry.categoryId)?.name}</small><strong>{entry.name}</strong><i>{[entry.type, entry.motif, entry.color, entry.size].filter(Boolean).join(" · ")}</i></span></button>) : <p>Tidak ada koleksi yang cocok.</p>}</div></section></div>}
 
-    {galleryItem && <div className="modal-backdrop gallery-layer" role="dialog" aria-modal="true" aria-label={galleryItem.title} onMouseDown={(e) => e.target === e.currentTarget && setGalleryItem(null)}><section className="gallery-modal" onTouchStart={(event) => { modalTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishModalSwipe(event.changedTouches[0].clientX)}><button className="close" onClick={() => setGalleryItem(null)} aria-label="Tutup">×</button><div className={`gallery-media ${modalMotion ? `push-${modalMotion}` : ""}`}>{galleryItem.mediaType === "video" ? youtubeId(galleryItem.mediaUrl) ? <iframe src={`https://www.youtube.com/embed/${youtubeId(galleryItem.mediaUrl)}?autoplay=1`} title={galleryItem.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /> : <video src={galleryItem.mediaUrl} poster={galleryItem.thumbnailUrl} controls autoPlay /> : <img key={galleryItem.id} src={galleryItem.mediaUrl} alt={galleryItem.title} />}{activeGallery.length > 1 && <><button className="gallery-modal-arrow previous" onClick={() => moveGalleryModal(-1)} aria-label="Foto sebelumnya">‹</button><button className="gallery-modal-arrow next" onClick={() => moveGalleryModal(1)} aria-label="Foto berikutnya">›</button></>}</div><div className="gallery-copy"><p className="eyebrow">{galleryItem.mediaType === "video" ? "Video" : "Foto"}</p><h2>{galleryItem.title}</h2>{(galleryItem.location || galleryItem.date) && <p>{[galleryItem.location, galleryItem.date && new Date(`${galleryItem.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</p>}<small className="gallery-modal-hint">Geser untuk foto sebelumnya atau berikutnya</small></div></section></div>}
+    {galleryItem && <div className="modal-backdrop gallery-layer" role="dialog" aria-modal="true" aria-label={galleryItem.title} onMouseDown={(e) => e.target === e.currentTarget && setGalleryItem(null)}><section className="gallery-modal" onTouchStart={(event) => { modalTouchStartX.current = event.touches[0].clientX; }} onTouchEnd={(event) => finishModalSwipe(event.changedTouches[0].clientX)}><button className="close" onClick={() => setGalleryItem(null)} aria-label="Tutup">×</button><div className={`gallery-media ${modalMotion ? `push-${modalMotion}` : ""}`}>{galleryItem.mediaType === "video" ? youtubeId(galleryItem.mediaUrl) ? <iframe src={`https://www.youtube.com/embed/${youtubeId(galleryItem.mediaUrl)}?autoplay=1`} title={galleryItem.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /> : <video src={galleryItem.mediaUrl} poster={galleryItem.thumbnailUrl} controls autoPlay /> : <>{modalOutgoing && <img className="gallery-modal-frame outgoing" src={modalOutgoing.mediaUrl} alt="" />}<img key={galleryItem.id} className={`gallery-modal-frame ${modalOutgoing ? "incoming" : ""}`} src={galleryItem.mediaUrl} alt={galleryItem.title} /></>}{activeGallery.length > 1 && <><button className="gallery-modal-arrow previous" onClick={() => moveGalleryModal(-1)} aria-label="Foto sebelumnya">‹</button><button className="gallery-modal-arrow next" onClick={() => moveGalleryModal(1)} aria-label="Foto berikutnya">›</button></>}</div><div className="gallery-copy"><p className="eyebrow">{galleryItem.mediaType === "video" ? "Video" : "Foto"}</p><h2>{galleryItem.title}</h2>{(galleryItem.location || galleryItem.date) && <p>{[galleryItem.location, galleryItem.date && new Date(`${galleryItem.date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })].filter(Boolean).join(" · ")}</p>}<small className="gallery-modal-hint">Geser untuk foto sebelumnya atau berikutnya</small></div></section></div>}
 
     {wishlistOpen && <div className="modal-backdrop wishlist-layer" role="dialog" aria-modal="true" aria-label="My Wishlist"><section className="wishlist-modal"><button className="close" onClick={() => setWishlistOpen(false)} aria-label="Tutup">×</button><h2>My Wishlist</h2>{wishlistItems.length ? <><div className="wishlist-list">{wishlistItems.map((entry) => <article key={entry.id}><button className="wishlist-open" onClick={() => { setWishlistOpen(false); openItem(entry); }}><img src={entry.imageUrl} alt={entry.name} /><span><strong>{entry.name}</strong><small>{entry.id}{entry.color ? ` · ${entry.color}` : ""}</small></span></button><button className="wishlist-remove" onClick={() => toggleWishlist(entry.id)} aria-label={`Hapus ${entry.name}`}>×</button></article>)}</div><a className="button brown send-wishlist" href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(wishlistMessage)}`} target="_blank">Send My Wishlist via WhatsApp</a></> : <div className="empty-wishlist"><span>♡</span><p>Wishlist Anda masih kosong.</p><button onClick={() => setWishlistOpen(false)}>Lihat koleksi</button></div>}</section></div>}
 
