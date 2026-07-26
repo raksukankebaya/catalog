@@ -159,3 +159,33 @@ footer .social-links a:hover{background:rgba(255,255,255,.1);border-color:rgba(2
   .gallery-modal-arrow.previous{left:10px}
   .gallery-modal-arrow.next{right:10px}
 }
+
+/* Raksukan Kebaya v13: directional push motion and visible social addresses */
+.hero-brand{background:radial-gradient(circle at 78% 28%,#8a5a3b 0,#5a321f 34%,#3f2115 100%)}
+.hero-brand:after{content:"R";position:absolute;right:8vw;top:50%;transform:translateY(-54%);font-family:var(--serif);font-size:min(46vw,590px);line-height:1;color:rgba(255,255,255,.045);pointer-events:none}
+
+footer .social-links{align-items:stretch;flex-direction:column;max-width:330px}
+footer .social-links a{width:100%;border-radius:8px;padding:10px 13px}
+.social-links a>span{display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;gap:3px;text-transform:none;letter-spacing:normal}
+.social-links span strong{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:white}
+.social-links span small{max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#d9c6bb;font-size:10px;line-height:1.35;white-space:nowrap}
+
+.gallery-focus-card{transition:left .43s cubic-bezier(.22,.8,.3,1),transform .43s cubic-bezier(.22,.8,.3,1),opacity .36s ease,filter .36s ease}
+.gallery-focus-carousel.push-next .gallery-focus-card.current{left:7%;z-index:2;transform:translate(-50%,-50%) scale(.82);opacity:.34;filter:saturate(.65) blur(.7px)}
+.gallery-focus-carousel.push-next .gallery-focus-card.next{left:50%;z-index:4;transform:translate(-50%,-50%);opacity:1;filter:none}
+.gallery-focus-carousel.push-next .gallery-focus-card.previous{left:-36%;opacity:0}
+.gallery-focus-carousel.push-previous .gallery-focus-card.current{left:93%;z-index:2;transform:translate(-50%,-50%) scale(.82);opacity:.34;filter:saturate(.65) blur(.7px)}
+.gallery-focus-carousel.push-previous .gallery-focus-card.previous{left:50%;z-index:4;transform:translate(-50%,-50%);opacity:1;filter:none}
+.gallery-focus-carousel.push-previous .gallery-focus-card.next{left:136%;opacity:0}
+.gallery-media.push-next>img{animation:modalPushNext .33s cubic-bezier(.22,.8,.3,1) forwards}
+.gallery-media.push-previous>img{animation:modalPushPrevious .33s cubic-bezier(.22,.8,.3,1) forwards}
+@keyframes modalPushNext{to{opacity:.15;transform:translateX(-22%) scale(.97)}}
+@keyframes modalPushPrevious{to{opacity:.15;transform:translateX(22%) scale(.97)}}
+
+@media(max-width:620px){
+  .gallery-focus-carousel.push-next .gallery-focus-card.current{left:-4%}
+  .gallery-focus-carousel.push-next .gallery-focus-card.previous{left:-58%}
+  .gallery-focus-carousel.push-previous .gallery-focus-card.current{left:104%}
+  .gallery-focus-carousel.push-previous .gallery-focus-card.next{left:158%}
+  footer .social-links{max-width:none}
+}
