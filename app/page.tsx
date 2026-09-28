@@ -54,7 +54,17 @@ const fallback: Catalog = {
 
 const sorted = <T extends { sortOrder: number }>(rows: T[]) => [...rows].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
 const itemImages = (item: Item) => Array.from(new Set([item.imageUrl, ...(item.imageUrls || "").split(/[\n|]+/)].map((x) => x.trim()).filter(Boolean)));
-const itemSizes = (value = "") => value.split(/[,/|;•·]+/).map((size) => size.trim()).filter(Boolean);
+const SIZE_ORDER = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"];
+const normalizeSize = (value: string) => value.trim().replace(/\s+/g, " ").toUpperCase();
+const itemSizes = (value = "") => value.split(/[,/|;•·]+/).map(normalizeSize).filter(Boolean);
+const compareSizes = (a: string, b: string) => {
+  const aIndex = SIZE_ORDER.indexOf(a);
+  const bIndex = SIZE_ORDER.indexOf(b);
+  if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;
+  if (aIndex >= 0) return -1;
+  if (bIndex >= 0) return 1;
+  return a.localeCompare(b, "id", { numeric: true });
+};
 const youtubeId = (url: string) => url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^?&/]+)/i)?.[1] || "";
 const galleryThumb = (entry: GalleryEntry) => entry.thumbnailUrl || (youtubeId(entry.mediaUrl) ? `https://img.youtube.com/vi/${youtubeId(entry.mediaUrl)}/hqdefault.jpg` : entry.mediaUrl);
 const socialUrl = (value: string | undefined, base: string) => !value ? "" : /^https?:\/\//i.test(value) ? value : `${base}${value.replace(/^@/, "")}`;
@@ -181,8 +191,8 @@ export default function Home() {
     const sub = data.subcategories.find((x) => x.id === entry.subcategoryId)?.name || "";
     return [entry.id, entry.name, entry.description, cat, sub, entry.type, entry.motif, entry.color, entry.size].join(" ").toLowerCase();
   };
-  const availableCategorySizes = useMemo(() => category ? Array.from(new Set(data.items.filter((entry) => entry.active && entry.categoryId === category.id).flatMap((entry) => itemSizes(entry.size)))).sort((a, b) => a.localeCompare(b, "id", { numeric: true })) : [], [data.items, category]);
-  const visibleItems = useMemo(() => category ? sorted(data.items.filter((x) => x.active && x.categoryId === category.id && searchText(x).includes(categorySearch.trim().toLowerCase()) && (!categorySize || itemSizes(x.size).some((size) => size.toLowerCase() === categorySize.toLowerCase())))) : [], [data, category, categorySearch, categorySize]);
+  const availableCategorySizes = useMemo(() => category ? Array.from(new Set(data.items.filter((entry) => entry.active && entry.categoryId === category.id).flatMap((entry) => itemSizes(entry.size)))).sort(compareSizes) : [], [data.items, category]);
+  const visibleItems = useMemo(() => category ? sorted(data.items.filter((x) => x.active && x.categoryId === category.id && searchText(x).includes(categorySearch.trim().toLowerCase()) && (!categorySize || itemSizes(x.size).includes(categorySize)))) : [], [data, category, categorySearch, categorySize]);
   const categorySubgroups = useMemo(() => category ? activeSubcategories.filter((sub) => sub.categoryId === category.id).map((sub) => ({ sub, items: visibleItems.filter((entry) => entry.subcategoryId === sub.id) })).filter((group) => group.items.length) : [], [category, activeSubcategories, visibleItems]);
   const searchResults = useMemo(() => showAllCollections && !searchQuery.trim() ? sorted(data.items.filter((x) => x.active)) : searchQuery.trim().length < 2 ? [] : sorted(data.items.filter((x) => x.active && searchText(x).includes(searchQuery.trim().toLowerCase()))), [data, searchQuery, showAllCollections]);
   const wishlistItems = useMemo(() => wishlist.map((id) => data.items.find((x) => x.id === id)).filter(Boolean) as Item[], [wishlist, data.items]);
