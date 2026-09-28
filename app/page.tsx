@@ -102,14 +102,20 @@ export default function Home() {
   const refresh = async () => {
     if (!apiUrl || apiUrl.includes("PASTE_")) return;
     setIsCatalogLoading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4500);
     try {
-      const response = await fetch(`${apiUrl}?action=catalog&ts=${Date.now()}`);
+      const response = await fetch(`${apiUrl}?action=catalog`, { signal: controller.signal, cache: "no-store" });
       if (!response.ok) throw new Error("Server data tidak merespons.");
       const result = await response.json();
       if (!result.ok) throw new Error(result.error || "Data katalog tidak dapat dibaca.");
       setData({ ...result.data, subcategories: result.data.subcategories || [], galleryCategories: result.data.galleryCategories || [], gallery: result.data.gallery || [] });
-    } catch { /* Halaman tetap tampil tanpa memasukkan data contoh. */ }
-    finally { setIsCatalogLoading(false); }
+    } catch (error) {
+      console.error("Katalog gagal dimuat:", error);
+    } finally {
+      window.clearTimeout(timeout);
+      setIsCatalogLoading(false);
+    }
   };
 
   useEffect(() => {
