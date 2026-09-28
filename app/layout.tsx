@@ -12,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><head><script src="config.js" /></head><body>{children}</body></html>;
+  return <html lang="id"><head><link rel="preconnect" href="https://script.google.com" /><link rel="preconnect" href="https://script.googleusercontent.com" /><script src="config.js" /></head><body>{children}</body></html>;
 }
