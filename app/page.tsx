@@ -1,5 +1,7 @@
 "use client";
 
+import snapshot from "./data/catalog.json";
+
 import { FormEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Category = { id: string; name: string; description: string; imageUrl: string; active: boolean; sortOrder: number };
@@ -16,41 +18,17 @@ declare global { interface Window { RAKSUKAN_CONFIG?: { apiUrl?: string } } }
 
 const WISHLIST_KEY = "raksukan-kebaya-wishlist";
 const WISHLIST_TTL = 3 * 60 * 60 * 1000;
-const fallback: Catalog = {
-  categories: [
-    { id: "kebaya-modern", name: "Kebaya Modern", description: "Siluet kontemporer dengan sentuhan kebaya yang anggun.", imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85", active: true, sortOrder: 1 },
-    { id: "kebaya-klasik", name: "Kebaya Klasik", description: "Kebaya bernuansa tradisi untuk momen istimewa.", imageUrl: "https://images.unsplash.com/photo-1606913079621-e64bd28682ba?auto=format&fit=crop&w=1200&q=85", active: true, sortOrder: 2 },
-    { id: "set-keluarga", name: "Set Keluarga", description: "Pilihan busana serasi untuk perayaan bersama keluarga.", imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85", active: true, sortOrder: 3 },
-  ],
-  subcategories: [
-    { id: "akad", categoryId: "kebaya-modern", name: "Akad & Lamaran", active: true, sortOrder: 1 },
-    { id: "pesta", categoryId: "kebaya-modern", name: "Pesta", active: true, sortOrder: 2 },
-    { id: "tradisional", categoryId: "kebaya-klasik", name: "Tradisional", active: true, sortOrder: 1 },
-    { id: "keluarga", categoryId: "set-keluarga", name: "Keluarga", active: true, sortOrder: 1 },
-  ],
-  items: [
-    { id: "KBM-001", categoryId: "kebaya-modern", subcategoryId: "akad", name: "Kebaya Arunika", description: "Kebaya bernuansa champagne dengan detail bordir lembut. Cocok untuk lamaran, akad, dan acara keluarga.", imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85", imageUrls: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85", type: "Kebaya Modern", motif: "Bordir floral", color: "Champagne", size: "S, M, L", active: true, sortOrder: 1 },
-    { id: "KBM-002", categoryId: "kebaya-modern", subcategoryId: "pesta", name: "Kebaya Larasati", description: "Potongan modern yang ringan dengan permainan tekstur feminin dan elegan.", imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85", type: "Kebaya Modern", color: "Dusty rose", active: true, sortOrder: 2 },
-    { id: "KBK-001", categoryId: "kebaya-klasik", subcategoryId: "tradisional", name: "Kebaya Sekar", description: "Kebaya klasik berpalet cokelat hangat dengan detail motif tradisional.", imageUrl: "https://images.unsplash.com/photo-1606913079621-e64bd28682ba?auto=format&fit=crop&w=1200&q=85", motif: "Tradisional", color: "Cokelat", active: true, sortOrder: 1 },
-    { id: "SKF-001", categoryId: "set-keluarga", subcategoryId: "keluarga", name: "Set Harmoni", description: "Busana keluarga serasi dengan palet netral yang lembut untuk hari bahagia.", imageUrl: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=85", type: "Set Keluarga", active: true, sortOrder: 1 },
-  ],
-  carousel: [
-    { id: "slide-1", title: "Kebaya yang bercerita", subtitle: "Temukan sentuhan anggun untuk setiap momen istimewa.", imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1800&q=88", active: true, sortOrder: 1 },
-    { id: "slide-2", title: "Rona klasik, pesona masa kini", subtitle: "Koleksi pilihan dengan detail yang lembut dan berkelas.", imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1800&q=88", active: true, sortOrder: 2 },
-    { id: "slide-3", title: "Dirancang untuk dikenang", subtitle: "Busana istimewa untuk hari yang tak terlupakan.", imageUrl: "https://images.unsplash.com/photo-1606913079621-e64bd28682ba?auto=format&fit=crop&w=1800&q=88", active: true, sortOrder: 3 },
-  ],
-  galleryCategories: [
-    { id: "nikahan", name: "Nikahan", description: "Momen sakral dalam balutan kebaya pilihan.", imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1400&q=88", active: true, sortOrder: 1 },
-    { id: "wisuda", name: "Wisuda", description: "Selebrasi pencapaian yang anggun dan berkesan.", imageUrl: "https://images.unsplash.com/photo-1606913079621-e64bd28682ba?auto=format&fit=crop&w=1400&q=88", active: true, sortOrder: 2 },
-    { id: "tunangan", name: "Tunangan", description: "Pertemuan hangat menuju hari bahagia.", imageUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1400&q=88", active: true, sortOrder: 3 },
-  ],
-  gallery: [
-    { id: "gallery-1", galleryCategoryId: "nikahan", mediaType: "photo", mediaUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1400&q=88", title: "Detail Kebaya Arunika", location: "Jakarta", date: "2026-07-20", active: true, sortOrder: 1 },
-    { id: "gallery-2", galleryCategoryId: "tunangan", mediaType: "photo", mediaUrl: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1400&q=88", title: "Sentuhan Bordir Larasati", location: "Bandung", date: "2026-07-18", active: true, sortOrder: 2 },
-    { id: "gallery-3", galleryCategoryId: "wisuda", mediaType: "photo", mediaUrl: "https://images.unsplash.com/photo-1606913079621-e64bd28682ba?auto=format&fit=crop&w=1400&q=88", title: "Rona Tradisi Sekar", active: true, sortOrder: 3 },
-  ],
-  contact: { brand: "Raksukan Kebaya", tagline: "Elegansi yang tumbuh dari tradisi", description: "Koleksi kebaya pilihan dengan sentuhan feminin, bersih, dan elegan.", promiseEyebrow: "Setiap helai dipilih untuk merayakan", promiseTitle: "keanggunan yang terasa personal.", phone: "+62 812-3456-7890", whatsapp: "6281234567890", instagram: "raksukankabaya", email: "halo@raksukankabaya.com", address: "Indonesia" },
-};
+const CATALOG_CACHE_KEY = "raksukan-catalog-v1";
+const CATALOG_CACHE_TTL = 24 * 60 * 60 * 1000;
+const normalizeCatalog = (value: Partial<Catalog>): Catalog => ({
+  categories: Array.isArray(value.categories) ? value.categories : [],
+  subcategories: Array.isArray(value.subcategories) ? value.subcategories : [],
+  items: Array.isArray(value.items) ? value.items : [],
+  carousel: Array.isArray(value.carousel) ? value.carousel : [],
+  galleryCategories: Array.isArray(value.galleryCategories) ? value.galleryCategories : [],
+  gallery: Array.isArray(value.gallery) ? value.gallery : [],
+  contact: value.contact && typeof value.contact === "object" ? value.contact : {},
+});
 
 const sorted = <T extends { sortOrder: number }>(rows: T[]) => [...rows].sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
 const itemImages = (item: Item) => Array.from(new Set([item.imageUrl, ...(item.imageUrls || "").split(/[\n|]+/)].map((x) => x.trim()).filter(Boolean)));
@@ -77,7 +55,7 @@ function StatusNotice({ message, floating = false }: { message: string; floating
 }
 
 export default function Home() {
-  const [data, setData] = useState<Catalog>({ categories: [], subcategories: [], items: [], carousel: [], galleryCategories: [], gallery: [], contact: {} });
+  const [data, setData] = useState<Catalog>(normalizeCatalog(snapshot.data as Partial<Catalog>));
   const [slide, setSlide] = useState(0);
   const [category, setCategory] = useState<Category | null>(null);
   const [item, setItem] = useState<Item | null>(null);
@@ -104,7 +82,8 @@ export default function Home() {
   const [editing, setEditing] = useState<Record<string, string | number | boolean>>({});
   const [notice, setNotice] = useState("");
   const [apiUrl, setApiUrl] = useState("");
-  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(!snapshot.fetchedAt);
+  const [catalogError, setCatalogError] = useState("");
   const [galleryMotion, setGalleryMotion] = useState<"next" | "previous" | "">("");
   const [modalMotion, setModalMotion] = useState<"next" | "previous" | "">("");
   const [modalOutgoing, setModalOutgoing] = useState<GalleryEntry | null>(null);
@@ -112,16 +91,20 @@ export default function Home() {
   const refresh = async () => {
     if (!apiUrl || apiUrl.includes("PASTE_")) return;
     setIsCatalogLoading(true);
+    setCatalogError("");
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 4500);
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(`${apiUrl}?action=catalog`, { signal: controller.signal, cache: "no-store" });
       if (!response.ok) throw new Error("Server data tidak merespons.");
       const result = await response.json();
       if (!result.ok) throw new Error(result.error || "Data katalog tidak dapat dibaca.");
-      setData({ ...result.data, subcategories: result.data.subcategories || [], galleryCategories: result.data.galleryCategories || [], gallery: result.data.gallery || [] });
+      const catalog = normalizeCatalog(result.data);
+      setData(catalog);
+      try { localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ endpoint: apiUrl, fetchedAt: Date.now(), data: catalog })); } catch { /* Cache is optional. */ }
     } catch (error) {
       console.error("Katalog gagal dimuat:", error);
+      setCatalogError("Katalog belum dapat diperbarui. Silakan coba lagi.");
     } finally {
       window.clearTimeout(timeout);
       setIsCatalogLoading(false);
@@ -131,15 +114,16 @@ export default function Home() {
   useEffect(() => {
     const configuredUrl = window.RAKSUKAN_CONFIG?.apiUrl?.trim() || "";
     if (!configuredUrl || configuredUrl.includes("PASTE_")) { setIsCatalogLoading(false); return; }
+    try {
+      const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || "null");
+      if (cached?.endpoint === configuredUrl && cached.fetchedAt > snapshot.fetchedAt && Date.now() - cached.fetchedAt < CATALOG_CACHE_TTL && cached.data) {
+        setData(normalizeCatalog(cached.data));
+        setIsCatalogLoading(false);
+      }
+    } catch { /* Continue with the build snapshot when storage is unavailable. */ }
     setApiUrl(configuredUrl);
   }, []);
   useEffect(() => { if (apiUrl) refresh(); }, [apiUrl]);
-  useEffect(() => {
-    if (!isCatalogLoading) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isCatalogLoading]);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "null");
@@ -336,16 +320,17 @@ export default function Home() {
   const openEdit = (tab: AdminTab, record: Record<string, unknown>) => { setAdminTab(tab); setEditing(record as Record<string, string | number | boolean>); };
 
   return <main>
-    {isCatalogLoading && <div className="catalog-loading-overlay" role="status" aria-label="Memuat data katalog"><div className="catalog-loading-mark"><span aria-hidden="true" /><img src="logo.png" alt="" /></div></div>}
     <header className="site-header">
       <a className="brand" href="#top" aria-label="Raksukan Kebaya - beranda"><img src="logo.png" alt="Logo Raksukan Kebaya" /><strong>Raksukan Kebaya</strong></a>
       <nav aria-label="Navigasi utama"><a href="#koleksi">Koleksi</a><a href="#galeri">Galeri</a><a href="#kontak">Kontak</a></nav>
       <div className="header-actions"><button onClick={() => { setShowAllCollections(false); setSearchOpen(true); }} aria-label="Cari katalog">⌕ <span>Cari</span></button><button onClick={() => setWishlistOpen(true)} aria-label={`My Wishlist, ${wishlist.length} item`}>♡ <span>My Wishlist</span>{wishlist.length > 0 && <b>{wishlist.length}</b>}</button></div>
     </header>
 
-    {currentSlide ? <section className="hero" id="top" aria-roledescription="carousel"><img key={`backdrop-${currentSlide.id}`} src={currentSlide.imageUrl} alt="" className="hero-backdrop" aria-hidden="true" /><img key={currentSlide.id} src={currentSlide.imageUrl} alt="" className="hero-image" /><div className="hero-shade" /><div className="hero-content"><p className="eyebrow">Raksukan Kebaya</p><h1>{currentSlide.title}</h1><p>{currentSlide.subtitle}</p><a href="#koleksi" className="button light">Lihat koleksi <span>→</span></a></div>{activeSlides.length > 1 && <><button className="hero-arrow previous" onClick={() => setSlide((slide - 1 + activeSlides.length) % activeSlides.length)} aria-label="Gambar sebelumnya">‹</button><button className="hero-arrow next" onClick={() => setSlide((slide + 1) % activeSlides.length)} aria-label="Gambar berikutnya">›</button><div className="dots">{activeSlides.map((entry, index) => <button key={entry.id} className={index === slide ? "active" : ""} onClick={() => setSlide(index)} aria-label={`Tampilkan gambar ${index + 1}`} />)}</div></>}</section> : <span id="top" />}
+    {currentSlide ? <section className="hero" id="top" aria-roledescription="carousel"><img key={`backdrop-${currentSlide.id}`} src={currentSlide.imageUrl} alt="" className="hero-backdrop" aria-hidden="true" /><img key={currentSlide.id} src={currentSlide.imageUrl} alt="" className="hero-image" fetchPriority="high" decoding="async" /><div className="hero-shade" /><div className="hero-content"><p className="eyebrow">Raksukan Kebaya</p><h1>{currentSlide.title}</h1><p>{currentSlide.subtitle}</p><a href="#koleksi" className="button light">Lihat koleksi <span>→</span></a></div>{activeSlides.length > 1 && <><button className="hero-arrow previous" onClick={() => setSlide((slide - 1 + activeSlides.length) % activeSlides.length)} aria-label="Gambar sebelumnya">‹</button><button className="hero-arrow next" onClick={() => setSlide((slide + 1) % activeSlides.length)} aria-label="Gambar berikutnya">›</button><div className="dots">{activeSlides.map((entry, index) => <button key={entry.id} className={index === slide ? "active" : ""} onClick={() => setSlide(index)} aria-label={`Tampilkan gambar ${index + 1}`} />)}</div></>}</section> : null}
 
     <section className="intro" id="koleksi"><p className="eyebrow">Koleksi pilihan</p><h2>Temukan kebaya untuk momenmu</h2><p>Pilih kategori untuk melihat detail setiap koleksi.</p></section>
+    {isCatalogLoading && !data.categories.length && <p className="catalog-inline-status" role="status">Memuat koleksi…</p>}
+    {catalogError && <p className="catalog-inline-status" role="status">{catalogError} <button onClick={() => refresh()}>Coba lagi</button></p>}
     <section className="category-grid" aria-label="Kategori katalog">{activeCategories.map((entry) => <button className="category-card" key={entry.id} onClick={() => { setCategory(entry); setCategorySearch(""); setCategorySize(""); setItem(null); }}><img src={entry.imageUrl} alt={entry.name} loading="lazy" /><span className="category-overlay"><small>Koleksi</small><strong>{entry.name}</strong><i>Jelajahi →</i></span></button>)}</section>
     <div className="all-collections"><button onClick={() => { setSearchQuery(""); setShowAllCollections(true); setSearchOpen(true); }}><span>Lihat semua koleksi</span><i>→</i></button></div>
     <section className="gallery-section" id="galeri">
